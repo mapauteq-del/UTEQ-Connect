@@ -82,6 +82,7 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
 
         // Login exitoso
         setIsLoggedIn(true);
+        navigation.replace('MainTabs');
       } else {
         const errorMessage = data.error || 'Error al iniciar sesión';
         Alert.alert('Error', errorMessage);
