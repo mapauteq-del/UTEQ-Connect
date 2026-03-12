@@ -4,6 +4,7 @@ import { RouteInfo } from "../../types";
 import { Ionicons } from '@expo/vector-icons';
 import { styles } from "../../styles/RouteInfoSheetStyle";
 import LocationInformation from "./LocationInformation";
+import PersonInformation from "./PersonInformation";
 
 interface RouteInfoSheetProps {
     routeInfo: RouteInfo | null;
@@ -25,9 +26,15 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
     isRecalculating = false
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
-    const [showLocationInfo, setShowLocationInfo] = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
 
     if (!routeInfo) return null;
+
+    // DEBUG — quitar después de confirmar que funciona
+    console.log('🧩 RouteInfoSheet selectedLocation:', JSON.stringify(selectedLocation));
+    console.log('🧩 isPerson value:', selectedLocation?.isPerson);
+
+    const isPerson = selectedLocation?.isPerson === true;
 
     const handleStartNavigation = () => {
         if (onStartNavigation) {
@@ -36,9 +43,22 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
         }
     };
 
-    const toggleExpanded = () => {
-        setIsExpanded(!isExpanded);
-    };
+    const toggleExpanded = () => setIsExpanded(!isExpanded);
+
+    const personData = isPerson ? {
+        numeroEmpleado: selectedLocation.numeroEmpleado ?? "",
+        nombreCompleto: selectedLocation.nombreCompleto ?? "",
+        email: selectedLocation.email ?? "",
+        telefono: selectedLocation.telefono ?? "",
+        cargo: selectedLocation.cargo ?? "",
+        departamento: selectedLocation.departamento ?? "",
+        cubiculo: selectedLocation.cubiculo,
+        planta: selectedLocation.planta,
+        ubicacion: {
+            nombre: selectedLocation.nombre,
+            coordenadas: selectedLocation.posicion,
+        },
+    } : null;
 
     return (
         <>
@@ -60,16 +80,12 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                                 </View>
                                 <View style={styles.minimizedInfo}>
                                     <Text style={styles.minimizedDestination} numberOfLines={1}>
-                                        {destinationName || "Destino"}
+                                        {isPerson ? selectedLocation.nombreCompleto : (destinationName || "Destino")}
                                     </Text>
                                     <View style={styles.minimizedStats}>
-                                        <Text style={styles.minimizedStat}>
-                                            {routeInfo.distancia}
-                                        </Text>
+                                        <Text style={styles.minimizedStat}>{routeInfo.distancia}</Text>
                                         <Text style={styles.minimizedDivider}>•</Text>
-                                        <Text style={styles.minimizedStat}>
-                                            {routeInfo.duracion}
-                                        </Text>
+                                        <Text style={styles.minimizedStat}>{routeInfo.duracion}</Text>
                                         {isNavigating && (
                                             <>
                                                 <Text style={styles.minimizedDivider}>•</Text>
@@ -90,20 +106,33 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
 
                     {isExpanded && (
                         <>
+                            {/* Header */}
                             <View style={styles.header}>
                                 <View style={styles.headerLeft}>
                                     <View style={styles.iconContainer}>
-                                        <Ionicons name="location" size={24} color="#4285F4" />
+                                        <Ionicons
+                                            name={isPerson ? "person" : "location"}
+                                            size={24}
+                                            color="#4285F4"
+                                        />
                                     </View>
                                     <View style={styles.headerText}>
                                         <Text style={styles.title}>Ruta hacia</Text>
                                         <Text style={styles.destination} numberOfLines={1}>
-                                            {destinationName || "Destino"}
+                                            {isPerson
+                                                ? selectedLocation.nombreCompleto
+                                                : (destinationName || "Destino")}
                                         </Text>
+                                        {isPerson && (
+                                            <Text style={{ fontSize: 12, color: "#5F6368", marginTop: 2 }}>
+                                                {selectedLocation.cargo} · {selectedLocation.nombre}
+                                            </Text>
+                                        )}
                                     </View>
                                 </View>
                             </View>
 
+                            {/* Stats */}
                             <View style={styles.infoContainer}>
                                 <View style={styles.infoCard}>
                                     <View style={styles.iconCircle}>
@@ -112,7 +141,6 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                                     <Text style={styles.infoLabel}>Distancia</Text>
                                     <Text style={styles.infoValue}>{routeInfo.distancia}</Text>
                                 </View>
-
                                 <View style={styles.infoCard}>
                                     <View style={styles.iconCircle}>
                                         <Ionicons name="time" size={20} color="#34A853" />
@@ -129,6 +157,7 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                                 </View>
                             )}
 
+                            {/* Nav + Close buttons */}
                             <View style={styles.buttonContainer}>
                                 <TouchableOpacity
                                     style={[
@@ -170,15 +199,16 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                                 </TouchableOpacity>
                             </View>
 
+                            {/* Info button */}
                             <TouchableOpacity
                                 style={{
                                     padding: 16,
-                                    backgroundColor: '#4285F4',
+                                    backgroundColor: isPerson ? '#E53935' : '#4285F4',
                                     borderRadius: 12,
                                     flexDirection: 'row',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    shadowColor: '#4285F4',
+                                    shadowColor: isPerson ? '#E53935' : '#4285F4',
                                     shadowOffset: { width: 0, height: 4 },
                                     shadowOpacity: 0.3,
                                     shadowRadius: 8,
@@ -187,16 +217,18 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                                     gap: 8,
                                 }}
                                 activeOpacity={0.8}
-                                onPress={() => setShowLocationInfo(true)}
+                                onPress={() => {
+                                    console.log('🔴 Info button pressed, isPerson:', isPerson);
+                                    setShowInfo(true);
+                                }}
                             >
-                                <Ionicons name="information-circle" size={20} color="white" />
-                                <Text style={{
-                                    color: 'white',
-                                    fontSize: 15,
-                                    fontWeight: '600',
-                                    letterSpacing: 0.3,
-                                }}>
-                                    Información de la ubicación
+                                <Ionicons
+                                    name={isPerson ? "person-circle" : "information-circle"}
+                                    size={20}
+                                    color="white"
+                                />
+                                <Text style={{ color: 'white', fontSize: 15, fontWeight: '600', letterSpacing: 0.3 }}>
+                                    {isPerson ? "Ver información del profesor" : "Información de la ubicación"}
                                 </Text>
                             </TouchableOpacity>
                         </>
@@ -204,15 +236,23 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
                 </View>
             </View>
 
+            {/* Person modal — uses PersonInformation directly (has its own Modal) */}
+            <PersonInformation
+                person={isPerson ? personData : null}
+                visible={showInfo && isPerson}
+                onClose={() => setShowInfo(false)}
+            />
+
+            {/* Location modal */}
             <Modal
-                visible={showLocationInfo}
+                visible={showInfo && !isPerson}
                 animationType="slide"
                 presentationStyle="pageSheet"
-                onRequestClose={() => setShowLocationInfo(false)}
+                onRequestClose={() => setShowInfo(false)}
             >
                 <LocationInformation
                     location={selectedLocation}
-                    onClose={() => setShowLocationInfo(false)}
+                    onClose={() => setShowInfo(false)}
                 />
             </Modal>
         </>

@@ -55,10 +55,10 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   suggestionSubtitle: {
-  fontSize: 12,
-  color: '#999',
-  marginTop: 2,
-},
+    fontSize: 12,
+    color: "#999",
+    marginTop: 2,
+  },
 });
 
 export default styles;

@@ -5,6 +5,7 @@ import { styles } from "../../styles/LocationInformationStyle";
 
 interface LocationInformationProps {
     location?: {
+        // Location fields
         nombre: string;
         direccion?: string;
         telefono?: string;
@@ -19,7 +20,7 @@ interface LocationInformationProps {
             latitude: number;
             longitude: number;
         };
-        // Datos de persona
+        // Person fields (when isPerson = true)
         isPerson?: boolean;
         numeroEmpleado?: string;
         nombreCompleto?: string;
@@ -33,16 +34,23 @@ interface LocationInformationProps {
 }
 
 const LocationInformation: React.FC<LocationInformationProps> = ({ location, onClose }) => {
+
+    // ── Shared header ──────────────────────────────────────────────────────────
+    const Header = ({ title }: { title: string }) => (
+        <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={28} color="#5F6368" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <View style={{ width: 28 }} />
+        </View>
+    );
+
+    // ── Empty state ────────────────────────────────────────────────────────────
     if (!location) {
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close" size={28} color="#5F6368" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Información</Text>
-                    <View style={{ width: 28 }} />
-                </View>
+                <Header title="Información del lugar" />
                 <View style={styles.emptyState}>
                     <Ionicons name="location-outline" size={64} color="#DDD" />
                     <Text style={styles.emptyText}>No hay información disponible</Text>
@@ -51,91 +59,61 @@ const LocationInformation: React.FC<LocationInformationProps> = ({ location, onC
         );
     }
 
-    const handleCallPress = () => {
-        if (location.telefono) {
-            Linking.openURL(`tel:${location.telefono}`);
-        }
-    };
-
-    const handleEmailPress = () => {
-        if (location.email) {
-            Linking.openURL(`mailto:${location.email}`);
-        }
-    };
-
-    const handleWebsitePress = () => {
-        if (location.sitioWeb) {
-            Linking.openURL(location.sitioWeb);
-        }
-    };
-
-    const handleDirectionsPress = () => {
-        if (location.posicion) {
-            const url = `https://www.google.com/maps/dir/?api=1&destination=${location.posicion.latitude},${location.posicion.longitude}`;
-            Linking.openURL(url);
-        }
-    };
-
-    const renderStars = (rating: number) => {
-        const stars = [];
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-
-        for (let i = 0; i < 5; i++) {
-            if (i < fullStars) {
-                stars.push(<Ionicons key={i} name="star" size={16} color="#FBBC04" />);
-            } else if (i === fullStars && hasHalfStar) {
-                stars.push(<Ionicons key={i} name="star-half" size={16} color="#FBBC04" />);
-            } else {
-                stars.push(<Ionicons key={i} name="star-outline" size={16} color="#FBBC04" />);
-            }
-        }
-        return stars;
-    };
-
-    // Si es una persona, mostrar vista de persona
+    // ── PERSON view ────────────────────────────────────────────────────────────
     if (location.isPerson) {
+        const handleCall = () => {
+            if (location.telefono) Linking.openURL(`tel:${location.telefono}`);
+        };
+        const handleEmail = () => {
+            if (location.email) Linking.openURL(`mailto:${location.email}`);
+        };
+        const handleDirections = () => {
+            if (location.posicion) {
+                Linking.openURL(
+                    `https://www.google.com/maps/dir/?api=1&destination=${location.posicion.latitude},${location.posicion.longitude}`
+                );
+            }
+        };
+
         return (
             <View style={styles.container}>
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <Ionicons name="close" size={28} color="#5F6368" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Información del Personal</Text>
-                    <View style={{ width: 28 }} />
-                </View>
-
+                <Header title="Información del Personal" />
                 <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+
                     {/* Avatar */}
-                    <View style={styles.avatarSection}>
-                        <View style={styles.avatarCircle}>
+                    <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+                        <View style={{
+                            width: 90, height: 90, borderRadius: 45,
+                            backgroundColor: '#EEF2FF',
+                            justifyContent: 'center', alignItems: 'center',
+                            marginBottom: 12,
+                        }}>
                             <Ionicons name="person" size={48} color="#4285F4" />
                         </View>
-                    </View>
-
-                    {/* Nombre y cargo */}
-                    <View style={styles.section}>
-                        <Text style={styles.personName}>{location.nombreCompleto || location.nombre}</Text>
-                        {location.cargo && (
-                            <View style={styles.cargoTag}>
-                                <Text style={styles.cargoText}>{location.cargo}</Text>
-                            </View>
-                        )}
-                        {location.numeroEmpleado && (
-                            <Text style={styles.employeeNumber}>No. Empleado: {location.numeroEmpleado}</Text>
-                        )}
+                        <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a1a', textAlign: 'center' }}>
+                            {location.nombreCompleto}
+                        </Text>
+                        <View style={{
+                            marginTop: 6, paddingHorizontal: 12, paddingVertical: 4,
+                            backgroundColor: '#E8F0FE', borderRadius: 20,
+                        }}>
+                            <Text style={{ fontSize: 13, color: '#4285F4', fontWeight: '600' }}>
+                                {location.cargo}
+                            </Text>
+                        </View>
+                        <Text style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                            No. Empleado: {location.numeroEmpleado}
+                        </Text>
                     </View>
 
                     {/* Departamento */}
-                    {location.departamento && (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Ionicons name="business" size={20} color="#4285F4" />
-                                <Text style={styles.sectionTitle}>Departamento</Text>
-                            </View>
-                            <Text style={styles.infoText}>{location.departamento}</Text>
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="business" size={20} color="#4285F4" />
+                            <Text style={styles.sectionTitle}>Departamento</Text>
                         </View>
-                    )}
+                        <Text style={styles.infoText}>{location.departamento}</Text>
+                    </View>
 
                     {/* Ubicación física */}
                     {(location.planta || location.cubiculo) && (
@@ -153,88 +131,113 @@ const LocationInformation: React.FC<LocationInformationProps> = ({ location, onC
                         </View>
                     )}
 
-                    {/* Información de contacto */}
-                    {(location.email || location.telefono) && (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Ionicons name="mail" size={20} color="#4285F4" />
-                                <Text style={styles.sectionTitle}>Contacto</Text>
-                            </View>
-                            {location.email && (
-                                <TouchableOpacity onPress={handleEmailPress} style={styles.contactItem}>
-                                    <Ionicons name="mail-outline" size={18} color="#5F6368" />
-                                    <Text style={styles.contactText}>{location.email}</Text>
-                                </TouchableOpacity>
-                            )}
-                            {location.telefono && (
-                                <TouchableOpacity onPress={handleCallPress} style={styles.contactItem}>
-                                    <Ionicons name="call-outline" size={18} color="#5F6368" />
-                                    <Text style={styles.contactText}>{location.telefono}</Text>
-                                </TouchableOpacity>
-                            )}
+                    {/* Edificio */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="school" size={20} color="#4285F4" />
+                            <Text style={styles.sectionTitle}>Edificio</Text>
                         </View>
-                    )}
+                        <Text style={styles.infoText}>{location.nombre}</Text>
+                    </View>
 
-                    {/* Botones de acción */}
-                    <View style={styles.actionsContainer}>
+                    {/* Contacto */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="mail" size={20} color="#4285F4" />
+                            <Text style={styles.sectionTitle}>Contacto</Text>
+                        </View>
+                        {location.email && (
+                            <TouchableOpacity
+                                onPress={handleEmail}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
+                            >
+                                <Ionicons name="mail-outline" size={18} color="#5F6368" />
+                                <Text style={{ color: '#4285F4', fontSize: 14 }}>{location.email}</Text>
+                            </TouchableOpacity>
+                        )}
                         {location.telefono && (
                             <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={handleCallPress}
+                                onPress={handleCall}
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 }}
                             >
+                                <Ionicons name="call-outline" size={18} color="#5F6368" />
+                                <Text style={{ color: '#4285F4', fontSize: 14 }}>{location.telefono}</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Action buttons */}
+                    <View style={[styles.actionsContainer, { marginBottom: 32 }]}>
+                        {location.telefono && (
+                            <TouchableOpacity style={styles.actionButton} onPress={handleCall}>
                                 <Ionicons name="call" size={24} color="#4285F4" />
                                 <Text style={styles.actionButtonText}>Llamar</Text>
                             </TouchableOpacity>
                         )}
-
                         {location.email && (
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={handleEmailPress}
-                            >
+                            <TouchableOpacity style={styles.actionButton} onPress={handleEmail}>
                                 <Ionicons name="mail" size={24} color="#4285F4" />
                                 <Text style={styles.actionButtonText}>Email</Text>
                             </TouchableOpacity>
                         )}
-
+                        {location.posicion && (
+                            <TouchableOpacity style={styles.actionButton} onPress={handleDirections}>
+                                <Ionicons name="navigate" size={24} color="#4285F4" />
+                                <Text style={styles.actionButtonText}>Cómo llegar</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
 
-                    {/* {location.posicion && (
-                        <View style={styles.coordinatesSection}>
-                            <Text style={styles.coordinatesText}>
-                                Lat: {location.posicion.latitude.toFixed(6)}, Lng: {location.posicion.longitude.toFixed(6)}
-                            </Text>
-                        </View>
-                    )} */}
                 </ScrollView>
             </View>
         );
     }
 
-    // Vista normal para lugares
+    // ── LOCATION view ──────────────────────────────────────────────────────────
+    const handleCallPress = () => {
+        if (location.telefono) Linking.openURL(`tel:${location.telefono}`);
+    };
+    const handleWebsitePress = () => {
+        if (location.sitioWeb) Linking.openURL(location.sitioWeb);
+    };
+    const handleDirectionsPress = () => {
+        if (location.posicion) {
+            Linking.openURL(
+                `https://www.google.com/maps/dir/?api=1&destination=${location.posicion.latitude},${location.posicion.longitude}`
+            );
+        }
+    };
+
+    const renderStars = (rating: number) => {
+        const stars = [];
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+        for (let i = 0; i < 5; i++) {
+            if (i < fullStars) {
+                stars.push(<Ionicons key={i} name="star" size={16} color="#FBBC04" />);
+            } else if (i === fullStars && hasHalfStar) {
+                stars.push(<Ionicons key={i} name="star-half" size={16} color="#FBBC04" />);
+            } else {
+                stars.push(<Ionicons key={i} name="star-outline" size={16} color="#FBBC04" />);
+            }
+        }
+        return stars;
+    };
+
+    // Check if location has any displayable info beyond just a name + coords
+    const hasInfo = location.direccion || location.horario || location.descripcion ||
+        location.telefono || location.sitioWeb || location.calificacion ||
+        (location.fotos && location.fotos.length > 0);
+
     return (
         <View style={styles.container}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                    <Ionicons name="close" size={28} color="#5F6368" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Información del lugar</Text>
-                <View style={{ width: 28 }} />
-            </View>
-
+            <Header title="Información del lugar" />
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+
                 {location.fotos && location.fotos.length > 0 && (
-                    <ScrollView
-                        horizontal
-                        style={styles.photosContainer}
-                        showsHorizontalScrollIndicator={false}
-                    >
+                    <ScrollView horizontal style={styles.photosContainer} showsHorizontalScrollIndicator={false}>
                         {location.fotos.map((foto, index) => (
-                            <Image
-                                key={index}
-                                source={{ uri: foto }}
-                                style={styles.photo}
-                            />
+                            <Image key={index} source={{ uri: foto }} style={styles.photo} />
                         ))}
                     </ScrollView>
                 )}
@@ -253,13 +256,9 @@ const LocationInformation: React.FC<LocationInformationProps> = ({ location, onC
                         <View style={styles.starsContainer}>
                             {renderStars(location.calificacion)}
                         </View>
-                        <Text style={styles.ratingText}>
-                            {location.calificacion.toFixed(1)}
-                        </Text>
+                        <Text style={styles.ratingText}>{location.calificacion.toFixed(1)}</Text>
                         {location.totalResenas && (
-                            <Text style={styles.reviewsText}>
-                                ({location.totalResenas} reseñas)
-                            </Text>
+                            <Text style={styles.reviewsText}>({location.totalResenas} reseñas)</Text>
                         )}
                     </View>
                 )}
@@ -294,32 +293,35 @@ const LocationInformation: React.FC<LocationInformationProps> = ({ location, onC
                     </View>
                 )}
 
+                {/* If location has no extra info, show coordinates at minimum */}
+                {!hasInfo && location.posicion && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Ionicons name="map" size={20} color="#4285F4" />
+                            <Text style={styles.sectionTitle}>Coordenadas</Text>
+                        </View>
+                        <Text style={styles.infoText}>
+                            Lat: {location.posicion.latitude.toFixed(6)}{"\n"}
+                            Lng: {location.posicion.longitude.toFixed(6)}
+                        </Text>
+                    </View>
+                )}
+
                 <View style={styles.actionsContainer}>
                     {location.telefono && (
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleCallPress}
-                        >
+                        <TouchableOpacity style={styles.actionButton} onPress={handleCallPress}>
                             <Ionicons name="call" size={24} color="#4285F4" />
                             <Text style={styles.actionButtonText}>Llamar</Text>
                         </TouchableOpacity>
                     )}
-
                     {location.sitioWeb && (
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleWebsitePress}
-                        >
+                        <TouchableOpacity style={styles.actionButton} onPress={handleWebsitePress}>
                             <Ionicons name="globe" size={24} color="#4285F4" />
                             <Text style={styles.actionButtonText}>Sitio web</Text>
                         </TouchableOpacity>
                     )}
-
                     {location.posicion && (
-                        <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={handleDirectionsPress}
-                        >
+                        <TouchableOpacity style={styles.actionButton} onPress={handleDirectionsPress}>
                             <Ionicons name="navigate" size={24} color="#4285F4" />
                             <Text style={styles.actionButtonText}>Cómo llegar</Text>
                         </TouchableOpacity>
@@ -333,6 +335,7 @@ const LocationInformation: React.FC<LocationInformationProps> = ({ location, onC
                         </Text>
                     </View>
                 )}
+
             </ScrollView>
         </View>
     );
