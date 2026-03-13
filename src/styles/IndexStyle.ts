@@ -31,7 +31,7 @@ const indexScreenStyles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   logoSubText: {
     fontSize: 16,
