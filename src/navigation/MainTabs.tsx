@@ -3,8 +3,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
-import MapScreen from '../Views/MapScreen';
+import MapScreen from '../screens/MapScreen';
 import EventsNavigator from './EventsNavigator';
+import ProfileScreen from '../screens/ProfileScreen';
 import { MainTabParamList } from '../types/navigation';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -30,21 +31,12 @@ const MainTabs = ({ setIsLoggedIn }: MainTabsProps) => {
         name="HomeTab"
         options={{
           tabBarLabel: 'Inicio',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Icon 
-              name={focused ? 'home' : 'home-outline'} 
-              size={24} 
-              color={color}
-            />
+          tabBarIcon: ({ focused, color }) => (
+            <Icon name={focused ? 'home' : 'home-outline'} size={24} color={color} />
           ),
         }}
       >
-        {(props) => (
-          <HomeScreen 
-            {...props} 
-            setIsLoggedIn={setIsLoggedIn} 
-          />
-        )}
+        {(props) => <HomeScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
       </Tab.Screen>
 
       <Tab.Screen
@@ -52,12 +44,8 @@ const MainTabs = ({ setIsLoggedIn }: MainTabsProps) => {
         component={EventsNavigator}
         options={{
           tabBarLabel: 'Eventos',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Icon 
-              name={focused ? 'calendar' : 'calendar-outline'} 
-              size={24} 
-              color={color}
-            />
+          tabBarIcon: ({ focused, color }) => (
+            <Icon name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
           ),
         }}
       />
@@ -67,30 +55,25 @@ const MainTabs = ({ setIsLoggedIn }: MainTabsProps) => {
         component={MapScreen}
         options={{
           tabBarLabel: 'Mapa',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Icon 
-              name={focused ? 'map' : 'map-outline'} 
-              size={24} 
-              color={color}
-            />
+          tabBarIcon: ({ focused, color }) => (
+            <Icon name={focused ? 'map' : 'map-outline'} size={24} color={color} />
           ),
         }}
       />
 
+      {/* ✅ Corregido: ProfileScreen en lugar de HomeScreen */}
       <Tab.Screen
         name="AccountTab"
-        component={HomeScreen}
         options={{
           tabBarLabel: 'Cuenta',
-          tabBarIcon: ({ focused, color, size }) => (
-            <Icon 
-              name={focused ? 'person' : 'person-outline'} 
-              size={24} 
-              color={color}
-            />
+          tabBarIcon: ({ focused, color }) => (
+            <Icon name={focused ? 'person' : 'person-outline'} size={24} color={color} />
           ),
         }}
-      />
+      >
+        {(props) => <ProfileScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+      </Tab.Screen>
+
     </Tab.Navigator>
   );
 };

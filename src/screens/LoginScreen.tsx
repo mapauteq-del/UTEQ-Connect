@@ -65,6 +65,8 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
         }),
       });
 
+      
+
       const data = await response.json();
 
       if (response.ok && data.success) {
