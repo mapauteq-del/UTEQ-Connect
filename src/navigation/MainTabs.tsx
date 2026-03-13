@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StyleSheet } from 'react-native';
 import { Ionicons as Icon } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
@@ -9,6 +9,24 @@ import ProfileScreen from '../screens/ProfileScreen';
 import { MainTabParamList } from '../types/navigation';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+
+const FadeScreen = ({ children }: { children: React.ReactNode }) => {
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <Animated.View style={{ flex: 1, opacity }}>
+      {children}
+    </Animated.View>
+  );
+};
 
 interface MainTabsProps {
   setIsLoggedIn: (value: boolean) => void;
@@ -22,9 +40,14 @@ const MainTabs = ({ setIsLoggedIn }: MainTabsProps) => {
         headerShown: false,
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: '#003366',
-        tabBarInactiveTintColor: '#999',
+        tabBarInactiveTintColor: '#aaa',
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIconStyle: styles.tabBarIcon,
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingVertical: 8,
+        },
+        tabBarBackground: () => <View style={styles.tabBarBackground} />,
       }}
     >
       <Tab.Screen
@@ -32,73 +55,95 @@ const MainTabs = ({ setIsLoggedIn }: MainTabsProps) => {
         options={{
           tabBarLabel: 'Inicio',
           tabBarIcon: ({ focused, color }) => (
-            <Icon name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+            <Icon name={focused ? 'home' : 'home-outline'} size={22} color={color} />
           ),
         }}
       >
-        {(props) => <HomeScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+        {(props) => (
+          <FadeScreen>
+            <HomeScreen {...props} setIsLoggedIn={setIsLoggedIn} />
+          </FadeScreen>
+        )}
       </Tab.Screen>
 
       <Tab.Screen
         name="EventsTab"
-        component={EventsNavigator}
         options={{
           tabBarLabel: 'Eventos',
           tabBarIcon: ({ focused, color }) => (
-            <Icon name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+            <Icon name={focused ? 'calendar' : 'calendar-outline'} size={22} color={color} />
           ),
         }}
-      />
+      >
+        {() => (
+          <FadeScreen>
+            <EventsNavigator />
+          </FadeScreen>
+        )}
+      </Tab.Screen>
 
       <Tab.Screen
         name="MapTab"
-        component={MapScreen}
         options={{
           tabBarLabel: 'Mapa',
           tabBarIcon: ({ focused, color }) => (
-            <Icon name={focused ? 'map' : 'map-outline'} size={24} color={color} />
+            <Icon name={focused ? 'map' : 'map-outline'} size={22} color={color} />
           ),
         }}
-      />
+      >
+        {() => (
+          <FadeScreen>
+            <MapScreen />
+          </FadeScreen>
+        )}
+      </Tab.Screen>
 
-      {/* ✅ Corregido: ProfileScreen en lugar de HomeScreen */}
       <Tab.Screen
         name="AccountTab"
         options={{
           tabBarLabel: 'Cuenta',
           tabBarIcon: ({ focused, color }) => (
-            <Icon name={focused ? 'person' : 'person-outline'} size={24} color={color} />
+            <Icon name={focused ? 'person' : 'person-outline'} size={22} color={color} />
           ),
         }}
       >
-        {(props) => <ProfileScreen {...props} setIsLoggedIn={setIsLoggedIn} />}
+        {(props) => (
+          <FadeScreen>
+            <ProfileScreen {...props} setIsLoggedIn={setIsLoggedIn} />
+          </FadeScreen>
+        )}
       </Tab.Screen>
-
     </Tab.Navigator>
   );
 };
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 110,
-    paddingBottom: 8,
-    paddingTop: 8,
+    position: 'absolute',
+    bottom: 14,
+    left: 20,
+    right: 20,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    elevation: 8,
+    borderTopWidth: 0,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    paddingBottom: 0,
+    paddingTop: 0,
+  },
+  tabBarBackground: {
+    flex: 1,
+    borderRadius: 35,
+    backgroundColor: '#fff',
   },
   tabBarLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
-  },
-  tabBarIcon: {
-    marginTop: 4,
+    marginBottom: 2,
   },
 });
 
