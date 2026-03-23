@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from "react";
-import { View, Alert, ActivityIndicator } from "react-native";
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { View, Alert, ActivityIndicator, Text, StyleSheet } from "react-native";
 import MapView, { Marker, Polyline, Region } from "react-native-maps";
 import * as Location from 'expo-location';
 import axios from "axios";
@@ -8,22 +8,76 @@ import SearchBar from "./SearchBar";
 import { Location as LocationType, RouteInfo, Coordinates, PersonData } from "../../types";
 import { GOOGLE_MAPS_API_KEY } from "../../config/maps";
 import { decodePolyline } from "../../utils/polyline";
-import { estaFueraDeRuta } from "../../utils/geoUtils";
+import {
+    estaFueraDeRuta,
+    recortarRuta,
+    distanciaRestante,
+    calcularBearing,
+} from "../../utils/geoUtils";
 import RouteInfoSheet from "./RouteInfoSheet";
+import { useGraph } from "../../hooks/useGraph";
+import {
+    dijkstra,
+    nearestNode,
+    pathToCoordinates,
+    routeDistance,
+    walkingTime,
+    haversine,
+    buildTurnInstructions,
+    TurnInstruction,
+} from "../../utils/dijkstra";
 
-const UTEQ_COORDS: Coordinates = {
-    latitude: 20.65398463798,
-    longitude: -100.40607234656,
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const UTEQ_COORDS: Coordinates = { latitude: 20.65398463798, longitude: -100.40607234656 };
+const INITIAL_REGION: Region   = { ...UTEQ_COORDS, latitudeDelta: 0.01, longitudeDelta: 0.01 };
+
+const CAMPUS_BOUNDS = {
+    minLat: 20.6525, maxLat: 20.6595,
+    minLng: -100.4080, maxLng: -100.4025,
 };
 
-const INITIAL_REGION: Region = {
-    ...UTEQ_COORDS,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
+const UMBRAL_DESVIO      = 30;   // metros para detectar desvío
+const MIN_RECALCULO_MS   = 8000; // ms mínimo entre recálculos
+const TRACKING_INTERVAL  = 2000; // ms entre actualizaciones GPS
+const TRACKING_DISTANCE  = 3;    // metros mínimos para actualizar
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const estaEnCampus = (c: Coordinates) =>
+    c.latitude  >= CAMPUS_BOUNDS.minLat && c.latitude  <= CAMPUS_BOUNDS.maxLat &&
+    c.longitude >= CAMPUS_BOUNDS.minLng && c.longitude <= CAMPUS_BOUNDS.maxLng;
+
+const getGooglePolyline = async (
+    origen: Coordinates,
+    destino: Coordinates
+): Promise<Coordinates[]> => {
+    try {
+        const params = new URLSearchParams({
+            origin:      `${origen.latitude},${origen.longitude}`,
+            destination: `${destino.latitude},${destino.longitude}`,
+            key:         GOOGLE_MAPS_API_KEY,
+            language:    "es", units: "metric", region: "mx", mode: "walking",
+        });
+        const res = await axios.get(
+            `https://maps.googleapis.com/maps/api/directions/json?${params}`,
+            { timeout: 10000 }
+        );
+        if (res.data.status === "OK" && res.data.routes.length) {
+            return decodePolyline(res.data.routes[0].overview_polyline.points).filter(
+                p => p.latitude && p.longitude &&
+                     !isNaN(p.latitude) && !isNaN(p.longitude) &&
+                     Math.abs(p.latitude) <= 90 && Math.abs(p.longitude) <= 180
+            );
+        }
+    } catch (_) {}
+    return [];
 };
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 const MapViewContainer = () => {
-    const [searchText, setSearchText]           = useState("");
+    const [searchText, setSearchText]             = useState("");
     const [selectedLocation, setSelectedLocation] = useState<LocationType | null>(null);
     const [currentLocation, setCurrentLocation]   = useState<Coordinates | null>(null);
     const [routeCoordinates, setRouteCoordinates] = useState<Coordinates[]>([]);
@@ -31,44 +85,45 @@ const MapViewContainer = () => {
     const [loadingLocation, setLoadingLocation]   = useState(true);
     const [isNavigating, setIsNavigating]         = useState(false);
     const [recalculando, setRecalculando]         = useState(false);
+    const [heading, setHeading]                   = useState<number>(0);
+    const [nextInstruction, setNextInstruction]   = useState<string>("");
+    const [distanciaProxGiro, setDistanciaProxGiro] = useState<number>(0);
 
-    const mapRef                  = useRef<MapView>(null);
-    const regionRef               = useRef<Region>(INITIAL_REGION);
-    const locationSubscription    = useRef<Location.LocationSubscription | null>(null);
-    const lastRecalculationTime   = useRef<number>(0);
+    const { nodes: graphNodes, map: graphMap, loaded: graphLoaded } = useGraph();
+
+    const mapRef                = useRef<MapView>(null);
+    const regionRef             = useRef<Region>(INITIAL_REGION);
+    const locationSubscription  = useRef<Location.LocationSubscription | null>(null);
+    const lastRecalculationTime = useRef<number>(0);
+    const fullRouteRef          = useRef<Coordinates[]>([]);       // ruta completa original
+    const instructionsRef       = useRef<TurnInstruction[]>([]);   // instrucciones de giro
+    const selectedLocationRef   = useRef<LocationType | null>(null);
+    const isNavigatingRef       = useRef(false);
+
+    // Mantener refs sincronizados con state
+    useEffect(() => { selectedLocationRef.current = selectedLocation; }, [selectedLocation]);
+    useEffect(() => { isNavigatingRef.current = isNavigating; }, [isNavigating]);
 
     useEffect(() => {
         obtenerUbicacionActual();
         return () => { locationSubscription.current?.remove(); };
     }, []);
 
-    // ── GPS ────────────────────────────────────────────────────────────────────
+    // ── GPS ───────────────────────────────────────────────────────────────────
 
     const obtenerUbicacionActual = async () => {
         try {
             setLoadingLocation(true);
-            const USE_TESTING_LOCATION = false;
-
-            if (USE_TESTING_LOCATION) {
-                setCurrentLocation(UTEQ_COORDS);
-                mapRef.current?.animateToRegion({ ...UTEQ_COORDS, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 1000);
-                setLoadingLocation(false);
-                return;
-            }
-
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== "granted") {
                 Alert.alert("Permiso denegado", "Necesitamos acceso a tu ubicación.");
-                setLoadingLocation(false);
                 return;
             }
-
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
             const coords: Coordinates = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
             setCurrentLocation(coords);
             mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 1000);
         } catch (e) {
-            console.error("Error obteniendo ubicación:", e);
             Alert.alert("Error", "No se pudo obtener tu ubicación actual");
         } finally {
             setLoadingLocation(false);
@@ -76,28 +131,39 @@ const MapViewContainer = () => {
     };
 
     const iniciarTrackingGPS = async () => {
-        try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== "granted") return;
-            locationSubscription.current?.remove();
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        locationSubscription.current?.remove();
 
-            locationSubscription.current = await Location.watchPositionAsync(
-                { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 3000, distanceInterval: 10 },
-                (loc) => {
-                    const nueva: Coordinates = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-                    setCurrentLocation(nueva);
+        locationSubscription.current = await Location.watchPositionAsync(
+            {
+                accuracy:         Location.Accuracy.BestForNavigation,
+                timeInterval:     TRACKING_INTERVAL,
+                distanceInterval: TRACKING_DISTANCE,
+            },
+            (loc) => {
+                const nueva: Coordinates = {
+                    latitude:  loc.coords.latitude,
+                    longitude: loc.coords.longitude,
+                };
+                const hdg = loc.coords.heading ?? 0;
 
-                    if (mapRef.current && isNavigating) {
-                        mapRef.current.animateToRegion({ ...nueva, latitudeDelta: 0.005, longitudeDelta: 0.005 }, 500);
-                    }
-                    if (isNavigating && routeCoordinates.length > 0 && selectedLocation) {
-                        verificarDesvio(nueva);
-                    }
+                setCurrentLocation(nueva);
+                setHeading(hdg);
+
+                if (!isNavigatingRef.current) return;
+
+                // Rotar mapa según heading
+                if (mapRef.current && hdg >= 0) {
+                    mapRef.current.animateCamera(
+                        { center: nueva, heading: hdg, pitch: 0, zoom: 18 },
+                        { duration: 500 }
+                    );
                 }
-            );
-        } catch (e) {
-            console.error("Error iniciando tracking:", e);
-        }
+
+                procesarPosicion(nueva);
+            }
+        );
     };
 
     const detenerTrackingGPS = () => {
@@ -105,55 +171,161 @@ const MapViewContainer = () => {
         locationSubscription.current = null;
     };
 
-    const verificarDesvio = (ubicacion: Coordinates) => {
-        const UMBRAL = 50;
-        const MIN_RECALCULO = 10000;
-        const ahora = Date.now();
-        if (recalculando || ahora - lastRecalculationTime.current < MIN_RECALCULO) return;
+    // ── Procesar posición en tiempo real ──────────────────────────────────────
 
-        if (estaFueraDeRuta(ubicacion, routeCoordinates, UMBRAL) && selectedLocation) {
-            Alert.alert("Desvío detectado", "Recalculando ruta...", [{ text: "OK" }], { cancelable: true });
+    const procesarPosicion = useCallback((pos: Coordinates) => {
+        if (fullRouteRef.current.length === 0) return;
+
+        // 1. Recortar la ruta — eliminar tramos ya recorridos
+        const recortada = recortarRuta(pos, fullRouteRef.current);
+        setRouteCoordinates(recortada);
+
+        // 2. Actualizar distancia y tiempo restante
+        const distRest = distanciaRestante(pos, fullRouteRef.current);
+        setRouteInfo(prev => prev ? {
+            ...prev,
+            distancia:      distRest >= 1000 ? `${(distRest / 1000).toFixed(1)} km` : `${Math.round(distRest)} m`,
+            duracion:       walkingTime(distRest),
+            distanciaValor: Math.round(distRest),
+            duracionValor:  Math.ceil(distRest / 1.4),
+        } : prev);
+
+        // 3. Próxima instrucción de giro
+        actualizarInstruccion(pos);
+
+        // 4. Verificar desvío
+        const ahora = Date.now();
+        if (recalculando || ahora - lastRecalculationTime.current < MIN_RECALCULO_MS) return;
+
+        if (estaFueraDeRuta(pos, fullRouteRef.current, UMBRAL_DESVIO)) {
+            const dest = selectedLocationRef.current;
+            if (!dest) return;
             lastRecalculationTime.current = ahora;
-            calcularRuta(ubicacion, selectedLocation.posicion);
+            Alert.alert("Desvío detectado", "Recalculando ruta...", [{ text: "OK" }], { cancelable: true });
+            calcularRuta(pos, dest.posicion);
+        }
+    }, [recalculando]);
+
+    // ── Próxima instrucción ───────────────────────────────────────────────────
+
+    const actualizarInstruccion = (pos: Coordinates) => {
+        const instructions = instructionsRef.current;
+        if (instructions.length === 0) return;
+
+        // Buscar la instrucción más próxima aún no alcanzada
+        for (const inst of instructions) {
+            const d = haversine(pos.latitude, pos.longitude, inst.coords.latitude, inst.coords.longitude);
+            if (d > 10) { // más de 10m = aún no llegamos
+                setNextInstruction(inst.instruction);
+                setDistanciaProxGiro(Math.round(d));
+                break;
+            }
         }
     };
 
-    // ── Route ──────────────────────────────────────────────────────────────────
+    // ── Ruta híbrida ──────────────────────────────────────────────────────────
 
-    const calcularRuta = async (origen: Coordinates, destino: Coordinates) => {
+    const calcularRutaHibrida = async (
+        origen: Coordinates,
+        destino: Coordinates
+    ): Promise<boolean> => {
+        if (!graphLoaded || graphNodes.length === 0) return false;
+        if (!estaEnCampus(destino)) return false;
+
+        const allNodeIds = graphNodes.map(n => n.nodeId);
+        const endNode    = nearestNode(graphNodes, destino.latitude, destino.longitude);
+
+        if (haversine(destino.latitude, destino.longitude, endNode.lat, endNode.lng) > 80) return false;
+
+        let fullCoords: Coordinates[];
+        let distTotal: number;
+
+        if (estaEnCampus(origen)) {
+            // Solo Dijkstra
+            const startNode = nearestNode(graphNodes, origen.latitude, origen.longitude);
+            const path = dijkstra(graphMap, allNodeIds, startNode.nodeId, endNode.nodeId);
+            if (path.length === 0) return false;
+
+            fullCoords = pathToCoordinates(path, graphNodes, graphMap);
+            distTotal  = routeDistance(path, graphMap);
+        } else {
+            // Google exterior + Dijkstra interior
+            const entryNode = nearestNode(graphNodes, origen.latitude, origen.longitude);
+            const [exteriorPts, path] = await Promise.all([
+                getGooglePolyline(origen, { latitude: entryNode.lat, longitude: entryNode.lng }),
+                Promise.resolve(dijkstra(graphMap, allNodeIds, entryNode.nodeId, endNode.nodeId)),
+            ]);
+
+            if (path.length === 0) return false;
+
+            const innerCoords = pathToCoordinates(path, graphNodes, graphMap);
+            const exterior    = exteriorPts.length > 0
+                ? exteriorPts
+                : [{ latitude: origen.latitude, longitude: origen.longitude }];
+
+            fullCoords = [...exterior, ...innerCoords.slice(1)];
+
+            // Distancia exterior
+            let distExt = 0;
+            for (let i = 0; i < exterior.length - 1; i++) {
+                distExt += haversine(exterior[i].latitude, exterior[i].longitude,
+                                     exterior[i+1].latitude, exterior[i+1].longitude);
+            }
+            distTotal = distExt + routeDistance(path, graphMap);
+        }
+
+        // Guardar ruta completa en ref para el tiempo real
+        fullRouteRef.current    = fullCoords;
+        instructionsRef.current = buildTurnInstructions(fullCoords);
+
+        setRouteCoordinates(fullCoords);
+        setRouteInfo({
+            distancia:      distTotal >= 1000 ? `${(distTotal / 1000).toFixed(1)} km` : `${Math.round(distTotal)} m`,
+            duracion:       walkingTime(distTotal),
+            distanciaValor: Math.round(distTotal),
+            duracionValor:  Math.ceil(distTotal / 1.4),
+        });
+
+        // Primera instrucción
+        if (instructionsRef.current.length > 0) {
+            setNextInstruction(instructionsRef.current[0].instruction);
+        }
+
+        mapRef.current?.fitToCoordinates(
+            [origen, ...fullCoords.slice(0, 60), destino],
+            { edgePadding: { top: 120, right: 80, bottom: 280, left: 80 }, animated: true }
+        );
+
+        return true;
+    };
+
+    const calcularRutaGoogle = async (origen: Coordinates, destino: Coordinates) => {
         try {
-            setRecalculando(true);
-
             const params = new URLSearchParams({
                 origin:       `${origen.latitude},${origen.longitude}`,
                 destination:  `${destino.latitude},${destino.longitude}`,
                 key:          GOOGLE_MAPS_API_KEY,
-                language:     "es",
-                alternatives: "true",
-                units:        "metric",
-                region:       "mx",
-                mode:         "walking",
+                language:     "es", alternatives: "true",
+                units:        "metric", region: "mx", mode: "walking",
             });
-
             const response = await axios.get(
                 `https://maps.googleapis.com/maps/api/directions/json?${params}`,
                 { timeout: 10000 }
             );
-
             if (response.data.status === "OK" && response.data.routes.length) {
                 const bestRoute = response.data.routes.reduce((best: any, r: any) =>
                     r.legs[0].duration.value < best.legs[0].duration.value ? r : best
                 );
-
                 const leg = bestRoute.legs[0];
-                if (!leg || !bestRoute.overview_polyline?.points) throw new Error("Datos de ruta incompletos");
-
+                if (!leg || !bestRoute.overview_polyline?.points) throw new Error("Ruta incompleta");
                 const points = decodePolyline(bestRoute.overview_polyline.points).filter(
-                    (p) => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude) &&
-                           Math.abs(p.latitude) <= 90 && Math.abs(p.longitude) <= 180
+                    p => p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude) &&
+                         Math.abs(p.latitude) <= 90 && Math.abs(p.longitude) <= 180
                 );
+                if (!points.length) throw new Error("Puntos inválidos");
 
-                if (!points.length) throw new Error("Puntos de ruta inválidos");
+                fullRouteRef.current    = points;
+                instructionsRef.current = buildTurnInstructions(points);
 
                 setRouteCoordinates(points);
                 setRouteInfo({
@@ -162,64 +334,44 @@ const MapViewContainer = () => {
                     distanciaValor: leg.distance?.value || 0,
                     duracionValor:  leg.duration?.value || 0,
                 });
-
+                if (instructionsRef.current.length > 0) {
+                    setNextInstruction(instructionsRef.current[0].instruction);
+                }
                 mapRef.current?.fitToCoordinates(
                     [origen, ...points.slice(0, 100), destino],
                     { edgePadding: { top: 120, right: 80, bottom: 280, left: 80 }, animated: true }
                 );
             } else {
                 Alert.alert("Ruta no encontrada", "No se pudo encontrar una ruta.");
-                setRouteCoordinates([]);
-                setRouteInfo(null);
+                setRouteCoordinates([]); setRouteInfo(null);
             }
         } catch (e: any) {
-            console.error("Error al calcular ruta:", e);
             Alert.alert("Error", "No se pudo calcular la ruta: " + e.message);
-            setRouteCoordinates([]);
-            setRouteInfo(null);
+            setRouteCoordinates([]); setRouteInfo(null);
+        }
+    };
+
+    const calcularRuta = async (origen: Coordinates, destino: Coordinates) => {
+        setRecalculando(true);
+        try {
+            const usoHibrida = await calcularRutaHibrida(origen, destino);
+            if (!usoHibrida) await calcularRutaGoogle(origen, destino);
         } finally {
             setRecalculando(false);
         }
     };
 
-    // ── Handlers ───────────────────────────────────────────────────────────────
+    // ── Handlers ──────────────────────────────────────────────────────────────
 
-    /**
-     * Único handler para los tres tipos (lugar / persona / evento).
-     *
-     * - Si viene personData → enriquece el location con isPerson = true
-     * - Si el location ya trae isEvent = true (lo pone SearchBar) → se guarda tal cual
-     * - En ningún caso se sobreescribe isEvent con isPerson ni viceversa
-     */
     const handleLocationSelect = (location: LocationType, personData?: PersonData) => {
-        let locationToSave: LocationType;
-
-        if (personData) {
-            // Persona: añadir datos del empleado
-            locationToSave = {
-                ...location,
-                isPerson:       true,
-                numeroEmpleado: personData.numeroEmpleado,
-                nombreCompleto: personData.nombreCompleto,
-                email:          personData.email,
-                telefono:       personData.telefono,
-                cargo:          personData.cargo,
-                departamento:   personData.departamento,
-                cubiculo:       personData.cubiculo,
-                planta:         personData.planta,
-            };
-        } else {
-            // Lugar estándar O evento — el location llega ya completo desde SearchBar
-            locationToSave = { ...location };
-        }
+        const locationToSave: LocationType = personData
+            ? { ...location, isPerson: true, ...personData }
+            : { ...location };
 
         setSelectedLocation(locationToSave);
-
         mapRef.current?.animateToRegion(
-            { ...location.posicion, latitudeDelta: 0.005, longitudeDelta: 0.005 },
-            500
+            { ...location.posicion, latitudeDelta: 0.005, longitudeDelta: 0.005 }, 500
         );
-
         if (currentLocation) {
             calcularRuta(currentLocation, location.posicion);
         } else {
@@ -230,7 +382,7 @@ const MapViewContainer = () => {
     const handleStartNavigation = () => {
         setIsNavigating(true);
         iniciarTrackingGPS();
-        Alert.alert("Navegación iniciada", "Se recalculará automáticamente si te desvías.");
+        Alert.alert("Navegación iniciada", "La ruta se recalculará automáticamente si te desvías.");
     };
 
     const handleCloseRoute = () => {
@@ -239,17 +391,19 @@ const MapViewContainer = () => {
         setSelectedLocation(null);
         setSearchText("");
         setIsNavigating(false);
+        setNextInstruction("");
+        setDistanciaProxGiro(0);
+        fullRouteRef.current    = [];
+        instructionsRef.current = [];
         detenerTrackingGPS();
-
         if (currentLocation && mapRef.current) {
             mapRef.current.animateToRegion(
-                { ...currentLocation, latitudeDelta: 0.01, longitudeDelta: 0.01 },
-                500
+                { ...currentLocation, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500
             );
         }
     };
 
-    // ── Render ─────────────────────────────────────────────────────────────────
+    // ── Render ────────────────────────────────────────────────────────────────
 
     if (loadingLocation) {
         return (
@@ -259,21 +413,11 @@ const MapViewContainer = () => {
         );
     }
 
-    const markerPinColor = selectedLocation?.isEvent
-        ? "orange"
-        : selectedLocation?.isPerson
-            ? "red"
-            : "red";
-
-    const markerTitle = selectedLocation?.isEvent
-        ? selectedLocation.eventTitulo
-        : selectedLocation?.nombre;
-
-    const markerDescription = selectedLocation?.isEvent
+    const markerPinColor  = selectedLocation?.isEvent ? "orange" : "red";
+    const markerTitle     = selectedLocation?.isEvent ? selectedLocation.eventTitulo : selectedLocation?.nombre;
+    const markerDesc      = selectedLocation?.isEvent
         ? `${selectedLocation.eventHoraInicio}–${selectedLocation.eventHoraFin}`
-        : selectedLocation?.isPerson
-            ? selectedLocation.cargo
-            : undefined;
+        : selectedLocation?.isPerson ? selectedLocation.cargo : undefined;
 
     return (
         <View style={styles.container}>
@@ -282,16 +426,16 @@ const MapViewContainer = () => {
                 style={styles.map}
                 initialRegion={INITIAL_REGION}
                 showsUserLocation
+                showsCompass
                 mapType="hybrid"
-                showsMyLocationButton
-                followsUserLocation={isNavigating}
+                showsMyLocationButton={!isNavigating}
+                followsUserLocation={false} // lo controlamos manualmente con animateCamera
                 onRegionChangeComplete={(r) => { regionRef.current = r; }}
             >
-                {currentLocation && (
+                {currentLocation && !isNavigating && (
                     <Marker
                         coordinate={currentLocation}
                         title="Tu ubicación"
-                        description={isNavigating ? "Navegando..." : "Ubicación actual"}
                         pinColor="blue"
                     />
                 )}
@@ -300,7 +444,7 @@ const MapViewContainer = () => {
                     <Marker
                         coordinate={selectedLocation.posicion}
                         title={markerTitle}
-                        description={markerDescription}
+                        description={markerDesc}
                         pinColor={markerPinColor}
                     />
                 )}
@@ -309,10 +453,25 @@ const MapViewContainer = () => {
                     <Polyline
                         coordinates={routeCoordinates}
                         strokeColor="#4285F4"
-                        strokeWidth={4}
+                        strokeWidth={5}
+                        lineDashPattern={undefined}
                     />
                 )}
             </MapView>
+
+            {/* Banner de próxima instrucción — solo visible navegando */}
+            {isNavigating && nextInstruction !== "" && (
+                <View style={navStyles.instructionBanner}>
+                    <Text style={navStyles.instructionText}>{nextInstruction}</Text>
+                    {distanciaProxGiro > 0 && (
+                        <Text style={navStyles.distanceText}>
+                            en {distanciaProxGiro < 1000
+                                ? `${distanciaProxGiro} m`
+                                : `${(distanciaProxGiro / 1000).toFixed(1)} km`}
+                        </Text>
+                    )}
+                </View>
+            )}
 
             <SearchBar
                 value={searchText}
@@ -332,5 +491,41 @@ const MapViewContainer = () => {
         </View>
     );
 };
+
+// ─── Estilos del banner de instrucción ────────────────────────────────────────
+
+const navStyles = StyleSheet.create({
+    instructionBanner: {
+        position:        "absolute",
+        top:             60,
+        left:            16,
+        right:           16,
+        backgroundColor: "#1a73e8",
+        borderRadius:    12,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        flexDirection:   "row",
+        alignItems:      "center",
+        justifyContent:  "space-between",
+        shadowColor:     "#000",
+        shadowOffset:    { width: 0, height: 2 },
+        shadowOpacity:   0.25,
+        shadowRadius:    4,
+        elevation:       5,
+        zIndex:          999,
+    },
+    instructionText: {
+        color:      "#fff",
+        fontSize:   16,
+        fontWeight: "600",
+        flex:       1,
+    },
+    distanceText: {
+        color:      "#fff",
+        fontSize:   14,
+        fontWeight: "400",
+        marginLeft: 8,
+    },
+});
 
 export default MapViewContainer;
