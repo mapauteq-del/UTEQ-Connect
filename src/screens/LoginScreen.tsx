@@ -32,16 +32,15 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
     checkBiometricAvailability();
   }, []);
 
-
-  
-
+  // ✅ Ahora verifica biometricUser en lugar de userToken
   const checkBiometricAvailability = async () => {
     const compatible = await LocalAuthentication.hasHardwareAsync();
     const enrolled = await LocalAuthentication.isEnrolledAsync();
-    const token = await AsyncStorage.getItem('userToken');
-    setBiometricAvailable(compatible && enrolled && !!token);
+    const biometricUser = await AsyncStorage.getItem('biometricUser');
+    setBiometricAvailable(compatible && enrolled && !!biometricUser);
   };
 
+  // ✅ Ahora llama al servidor para obtener un nuevo token
   const handleBiometricLogin = async () => {
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: 'Inicia sesión con tu huella',
@@ -50,10 +49,40 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
     });
 
     if (result.success) {
-      const token = await AsyncStorage.getItem('userToken');
-      if (token) {
-        setIsLoggedIn(true);
-        navigation.replace('MainTabs');
+      try {
+        const biometricUser = await AsyncStorage.getItem('biometricUser');
+
+        if (!biometricUser) {
+          Alert.alert('Error', 'No hay sesión biométrica guardada');
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/auth/biometric-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: biometricUser }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          const user = data.data.user;
+          const token = data.data.token;
+
+          // Guardar nuevo token y datos del usuario
+          await AsyncStorage.setItem('userToken', token);
+          await AsyncStorage.setItem('userId', user._id);
+          await AsyncStorage.setItem('userEmail', user.email);
+          await AsyncStorage.setItem('userName', user.nombre);
+          await AsyncStorage.setItem('userRol', user.rol);
+
+          setIsLoggedIn(true);
+          navigation.replace('MainTabs');
+        } else {
+          Alert.alert('Error', data.error || 'Error al iniciar sesión');
+        }
+      } catch (error) {
+        Alert.alert('Error de Conexión', 'No se pudo conectar con el servidor');
       }
     } else {
       Alert.alert('Error', 'No se pudo verificar tu identidad');
@@ -110,8 +139,8 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
         await AsyncStorage.setItem('userEmail', user.email);
         await AsyncStorage.setItem('userName', user.nombre);
         await AsyncStorage.setItem('userRol', user.rol);
-
-        console.log('Login exitoso, token guardado:', token);
+        // ✅ Guardar email para login biométrico futuro
+        await AsyncStorage.setItem('biometricUser', user.email);
 
         setIsLoggedIn(true);
         navigation.replace('MainTabs');

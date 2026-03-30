@@ -63,10 +63,12 @@ const EventDetailScreen = () => {
       const token = tokenParam || await AsyncStorage.getItem('userToken');
       const currentUserId = userIdParam || await AsyncStorage.getItem('userId');
 
-      const eventResponse = await axios.get(
-        `${API_URL}/events/${eventId}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-      );
+     const eventResponse = await axios.get(
+    `${API_URL}/events/${eventId}`,
+    token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+);
+console.log('raw response:', JSON.stringify(eventResponse.data.data, null, 2));
+setEvent(eventResponse.data.data);
       setEvent(eventResponse.data.data);
 
       if (token && currentUserId) {
@@ -153,19 +155,15 @@ const EventDetailScreen = () => {
     );
   };
 
-  const formatDate = (dateString: string) => {
+const formatDate = (dateString: string) => {
+    if (!dateString) return 'Fecha no disponible';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Fecha no disponible v2';
     return date.toLocaleDateString('es-MX', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
     });
-  };
+};
 
-  const formatDateRange = (startDate: string) => {
-    const start = new Date(startDate);
-    const startDay = new Date(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-    if (startDay.getTime() === startDay.getTime()) return formatDate(startDate);
-    return `${formatDate(startDate)} hasta ${formatDate(startDate)}`;
-  };
 
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return null;
@@ -196,11 +194,13 @@ const EventDetailScreen = () => {
 
   const imageUrl = getImageUrl(event.image);
 
-  // Espacio populado (objeto) o null si solo es id string
   const espacio = event.espacio && typeof event.espacio === 'object' ? event.espacio : null;
 
   return (
+    console.log('event.fecha:', event?.fecha),
+    
     <View style={styles.container}>
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header con imagen */}
         <View style={styles.headerImage}>
@@ -230,7 +230,7 @@ const EventDetailScreen = () => {
               </View>
               <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Fecha</Text>
-                <Text style={styles.infoValue}>{formatDateRange(event.fecha)}</Text>
+                <Text style={styles.infoValue}>{formatDate(event.fecha)}</Text>
               </View>
             </View>
 

@@ -32,8 +32,7 @@ export interface IEvent {
     _id: string;
     titulo: string;
     descripcion?: string;
-    fechaInicio: string;
-    fechaFin: string;
+    fecha: string;
     horaInicio: string;
     horaFin: string;
     destino: string | IDestino;

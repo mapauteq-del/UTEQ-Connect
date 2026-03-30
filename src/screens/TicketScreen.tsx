@@ -92,13 +92,11 @@ const TicketScreen = () => {
     });
   };
 
-  const formatDateRange = (startDate: string, endDate: string) => {
+  const formatDateRange = (startDate: string) => {
     const start = new Date(startDate);
-    const end = new Date(endDate);
     const startDay = new Date(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-    const endDay = new Date(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-    if (startDay.getTime() === endDay.getTime()) return formatDate(startDate);
-    return `Del ${formatDate(startDate)} al ${formatDate(endDate)}`;
+    if (startDay.getTime() === startDay.getTime()) return formatDate(startDate);
+    return `Del ${formatDate(startDate)} al ${formatDate(startDate)}`;
   };
 
   const getStatusColor = (status: string) => {
@@ -178,7 +176,7 @@ const TicketScreen = () => {
             <View style={styles.eventInfoContent}>
               <Text style={styles.eventInfoLabel}>Fecha</Text>
               <Text style={styles.eventInfoValue}>
-                {formatDateRange(event.fechaInicio, event.fechaFin)}
+                {formatDateRange(event.fechaInicio)}
               </Text>
             </View>
           </View>

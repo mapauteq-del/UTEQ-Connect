@@ -5,7 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import Index from './src/screens/Index';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
-import MainTabs from './src/navigation/MainTabs'; // ← NUEVO
+import MainTabs from './src/navigation/MainTabs';
 
 const Stack = createStackNavigator();
 
@@ -29,7 +29,6 @@ export default function App() {
 
         <Stack.Screen name="Register" component={RegisterScreen} />
 
-        {/* ← Reemplaza Map, Profile, Event con esto */}
         <Stack.Screen name="MainTabs">
           {(props) => <MainTabs {...props} setIsLoggedIn={setIsLoggedIn} />}
         </Stack.Screen>

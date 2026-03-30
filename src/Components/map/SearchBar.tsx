@@ -32,8 +32,7 @@ export interface EventResult {
   _id: string;
   titulo: string;
   descripcion?: string;
-  fechaInicio: string;
-  fechaFin: string;
+  fecha: string;
   horaInicio: string;
   horaFin: string;
   cupos: number;
@@ -179,8 +178,7 @@ const SearchBar = ({ value, onChange, onSelectLocation }: Props) => {
       eventId: event._id,
       eventTitulo: event.titulo,
       eventDescripcion: event.descripcion,
-      eventFechaInicio: event.fechaInicio,
-      eventFechaFin: event.fechaFin,
+      eventFecha: event.fecha,
       eventHoraInicio: event.horaInicio,
       eventHoraFin: event.horaFin,
       eventCupos: event.cupos,
@@ -197,14 +195,12 @@ const SearchBar = ({ value, onChange, onSelectLocation }: Props) => {
     onSelectLocation?.(location);   // no personData → handleLocationSelect won't overwrite isEvent
   };
 
-  const formatEventDate = (a: string, b: string) => {
-    const da = new Date(a);
-    const db = new Date(b);
-    const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-    return da.toDateString() === db.toDateString()
-      ? da.toLocaleDateString("es-MX", opts)
-      : `${da.toLocaleDateString("es-MX", opts)} – ${db.toLocaleDateString("es-MX", opts)}`;
-  };
+const formatEventDate = (fecha: string) => {
+    if (!fecha) return '';
+    return new Date(fecha).toLocaleDateString("es-MX", {
+        day: "numeric", month: "short", timeZone: "UTC"
+    });
+};
 
   const renderItem = ({ item }: { item: SuggestionItem }) => {
     if (item.type === "location") {
@@ -244,7 +240,7 @@ const SearchBar = ({ value, onChange, onSelectLocation }: Props) => {
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={styles.suggestionText}>{item.data.titulo}</Text>
           <Text style={{ fontSize: 12, color: "#888" }}>
-            {formatEventDate(item.data.fechaInicio, item.data.fechaFin)}{" "}
+            {formatEventDate(item.data.fecha)}{" "}
             {item.data.horaInicio}–{item.data.horaFin}
             {item.data.destino?.nombre ? ` · ${item.data.destino.nombre}` : ""}
           </Text>

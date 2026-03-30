@@ -56,7 +56,7 @@ const EventsListScreen = () => {
       if (filter === 'proximos') {
         const now = new Date();
         filteredEvents = eventData.filter(
-          (event: any) => new Date(event.fechaInicio) > now
+          (event: any) => new Date(event.fecha) > now
         );
       }
 

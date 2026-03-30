@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import styles from '../../styles/EventCardStyle';
@@ -6,32 +6,21 @@ import styles from '../../styles/EventCardStyle';
 const API_BASE_URL = 'https://uteq-connect-server-production.up.railway.app';
 
 const EventCard = ({ event, onPress }) => {
+  const [imageError, setImageError] = useState(false);
+
   const formatDate = (dateString) => {
+    if (!dateString) return 'Fecha no disponible';
     const date = new Date(dateString);
     return date.toLocaleDateString('es-MX', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-      timeZone: 'UTC'
+      timeZone: 'UTC',
     });
   };
 
-  const formatDateRange = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    const startDay = new Date(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
-    const endDay = new Date(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
-    
-    if (startDay.getTime() === endDay.getTime()) {
-      return formatDate(startDate);
-    } else {
-      return `${formatDate(startDate)} - ${formatDate(endDate)}`;
-    }
-  };
-
   const cuposPercentage = (event.cuposDisponibles / event.cupos) * 100;
-  
+
   const getCuposColor = () => {
     if (cuposPercentage <= 20) return '#f44336';
     if (cuposPercentage <= 50) return '#ff9800';
@@ -40,11 +29,18 @@ const EventCard = ({ event, onPress }) => {
 
   const getImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    if (imagePath.startsWith('http')) return imagePath;
-    return `${API_BASE_URL}/${imagePath}`;
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    if (imagePath.includes('cloudinary.com')) {
+      return `https://${imagePath}`;
+    }
+    const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+    return `${API_BASE_URL}/${cleanPath}`;
   };
 
   const imageUrl = getImageUrl(event.image);
+  const showImage = imageUrl && !imageError;
 
   return (
     <TouchableOpacity
@@ -53,21 +49,19 @@ const EventCard = ({ event, onPress }) => {
       activeOpacity={0.7}
     >
       <View style={styles.imageContainer}>
-        {imageUrl ? (
+        {showImage ? (
           <Image
             source={{ uri: imageUrl }}
             style={styles.eventImage}
             resizeMode="cover"
-            onError={(error) => {
-              console.log('Error cargando imagen del evento:', imageUrl);
-            }}
+            onError={() => setImageError(true)}
           />
         ) : (
           <View style={styles.placeholderImage}>
             <Icon name="calendar-outline" size={56} color="#bbb" />
           </View>
         )}
-        
+
         {event.activo ? (
           <View style={styles.badgeOverlay}>
             <Text style={styles.badgeOverlayText}>Activo</Text>
@@ -85,15 +79,17 @@ const EventCard = ({ event, onPress }) => {
         <Text style={styles.title} numberOfLines={1}>
           {event.titulo}
         </Text>
-        
-        <Text style={styles.dateText} numberOfLines={2}>
-          {formatDateRange(event.fechaInicio, event.fechaFin)}
+
+        <Text style={styles.dateText} numberOfLines={1}>
+          {formatDate(event.fecha)}
         </Text>
 
         <View style={styles.infoRow}>
           <Icon name="location-outline" size={14} color="#666" style={styles.infoIcon} />
           <Text style={styles.location} numberOfLines={1}>
-            {event.destino?.nombre || 'Ubicación no especificada'}
+            {typeof event.destino === 'object' && event.destino?.nombre
+              ? event.destino.nombre
+              : 'Ubicación no especificada'}
           </Text>
         </View>
 
@@ -105,12 +101,7 @@ const EventCard = ({ event, onPress }) => {
         </View>
 
         <View style={styles.cuposContainer}>
-          <View
-            style={[
-              styles.cuposIndicator,
-              { backgroundColor: getCuposColor() },
-            ]}
-          />
+          <View style={[styles.cuposIndicator, { backgroundColor: getCuposColor() }]} />
           <Text style={styles.cuposText}>
             {event.cuposDisponibles} de {event.cupos} disponibles
           </Text>

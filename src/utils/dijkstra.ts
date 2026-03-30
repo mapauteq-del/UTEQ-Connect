@@ -145,14 +145,12 @@ export const snapToRoute = (
     const A = route[i];
     const B = route[i + 1];
 
-    // Vector AB
     const abLat = B.latitude  - A.latitude;
     const abLng = B.longitude - A.longitude;
     const abLen2 = abLat * abLat + abLng * abLng;
 
     if (abLen2 === 0) continue;
 
-    // Proyección de P sobre AB, clampada a [0,1]
     const t = Math.max(0, Math.min(1,
       ((lat - A.latitude) * abLat + (lng - A.longitude) * abLng) / abLen2
     ));
@@ -281,32 +279,72 @@ export const buildTurnInstructions = (
     coords: coords[0],
   });
 
-  const TURN_THRESHOLD = 30; // grados mínimos para considerar un giro
+  const TURN_THRESHOLD = 35;         // grados mínimos para considerar un giro
+  const SHARP_THRESHOLD = 100;       // grados para giro brusco / media vuelta
+  const MIN_SEGMENT_METERS = 8;      // ignorar puntos demasiado juntos entre sí
+  const MIN_DIST_BETWEEN_TURNS = 15; // metros mínimos entre instrucciones consecutivas
 
-  for (let i = 1; i < coords.length - 1; i++) {
+  // 1. Pre-filtrar puntos muy juntos para eliminar ruido del polyline
+  const filtered: typeof coords = [coords[0]];
+  for (let i = 1; i < coords.length; i++) {
+    const d = haversine(
+      filtered[filtered.length - 1].latitude,
+      filtered[filtered.length - 1].longitude,
+      coords[i].latitude,
+      coords[i].longitude
+    );
+    if (d >= MIN_SEGMENT_METERS) filtered.push(coords[i]);
+  }
+
+  let distSinceLastInstruction = 0;
+
+  for (let i = 1; i < filtered.length - 1; i++) {
+    // Acumular distancia real desde la última instrucción
+    const segDist = haversine(
+      filtered[i - 1].latitude, filtered[i - 1].longitude,
+      filtered[i].latitude,     filtered[i].longitude
+    );
+    distSinceLastInstruction += segDist;
+
     const b1 = bearing(
-      coords[i-1].latitude, coords[i-1].longitude,
-      coords[i].latitude,   coords[i].longitude
+      filtered[i - 1].latitude, filtered[i - 1].longitude,
+      filtered[i].latitude,     filtered[i].longitude
     );
     const b2 = bearing(
-      coords[i].latitude,   coords[i].longitude,
-      coords[i+1].latitude, coords[i+1].longitude
+      filtered[i].latitude,     filtered[i].longitude,
+      filtered[i + 1].latitude, filtered[i + 1].longitude
     );
 
     let diff = b2 - b1;
     if (diff > 180)  diff -= 360;
     if (diff < -180) diff += 360;
 
-    // Calcular distancia acumulada desde el último punto de instrucción
-    const dist = haversine(
-      coords[i-1].latitude, coords[i-1].longitude,
-      coords[i].latitude,   coords[i].longitude
-    );
+    // Ignorar si el ángulo no supera el umbral mínimo
+    if (Math.abs(diff) < TURN_THRESHOLD) continue;
 
-    if (Math.abs(diff) >= TURN_THRESHOLD) {
-      const turn = diff > 0 ? 'Gira a la derecha' : 'Gira a la izquierda';
-      instructions.push({ instruction: turn, distance: Math.round(dist), coords: coords[i] });
+    // Ignorar si estamos muy cerca de la instrucción anterior
+    if (distSinceLastInstruction < MIN_DIST_BETWEEN_TURNS) continue;
+
+    // Determinar tipo de giro según intensidad
+    let turn: string;
+    const abs = Math.abs(diff);
+
+    if (abs >= SHARP_THRESHOLD) {
+      turn = diff > 0 ? 'Gira completamente a la derecha' : 'Gira completamente a la izquierda';
+    } else if (abs >= 60) {
+      turn = diff > 0 ? 'Gira a la derecha' : 'Gira a la izquierda';
+    } else {
+      turn = diff > 0 ? 'Mantén la derecha' : 'Mantén la izquierda';
     }
+
+    instructions.push({
+      instruction: turn,
+      distance: Math.round(distSinceLastInstruction),
+      coords: filtered[i],
+    });
+
+    // Reiniciar contador de distancia tras cada instrucción
+    distSinceLastInstruction = 0;
   }
 
   instructions.push({

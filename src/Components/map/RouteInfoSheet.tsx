@@ -8,13 +8,13 @@ import PersonInformation from "./PersonInformation";
 import EventInformation from "./EventInformation";
 
 interface RouteInfoSheetProps {
-    routeInfo:          RouteInfo | null;
-    destinationName?:   string;
-    selectedLocation?:  any;
-    onClose:            () => void;
+    routeInfo: RouteInfo | null;
+    destinationName?: string;
+    selectedLocation?: any;
+    onClose: () => void;
     onStartNavigation?: () => void;
-    isNavigating?:      boolean;
-    isRecalculating?:   boolean;
+    isNavigating?: boolean;
+    isRecalculating?: boolean;
 }
 
 const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
@@ -23,16 +23,16 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
     selectedLocation,
     onClose,
     onStartNavigation,
-    isNavigating    = false,
+    isNavigating = false,
     isRecalculating = false,
 }) => {
     const [isExpanded, setIsExpanded] = useState(true);
-    const [showInfo,   setShowInfo]   = useState(false);
+    const [showInfo, setShowInfo] = useState(false);
 
     if (!routeInfo) return null;
 
     const isPerson = selectedLocation?.isPerson === true;
-    const isEvent  = selectedLocation?.isEvent  === true;
+    const isEvent = selectedLocation?.isEvent === true;
 
     // ── Derived labels ─────────────────────────────────────────────────────────
 
@@ -48,50 +48,49 @@ const RouteInfoSheet: React.FC<RouteInfoSheetProps> = ({
             ? `${selectedLocation.eventHoraInicio}–${selectedLocation.eventHoraFin} · ${selectedLocation.nombre}`
             : null;
 
-    const infoColor  = isPerson ? "#E53935" : isEvent ? "#FB8C00" : "#4285F4";
-    const infoIcon   = isPerson ? "person-circle"  : isEvent ? "calendar"           : "information-circle";
-    const infoLabel  = isPerson ? "Ver información del profesor"
-                     : isEvent  ? "Ver información del evento"
-                     :            "Información de la ubicación";
+    const infoColor = isPerson ? "#E53935" : isEvent ? "#FB8C00" : "#4285F4";
+    const infoIcon = isPerson ? "person-circle" : isEvent ? "calendar" : "information-circle";
+    const infoLabel = isPerson ? "Ver información del profesor"
+        : isEvent ? "Ver información del evento"
+            : "Información de la ubicación";
     const headerIcon = isPerson ? "person" : isEvent ? "calendar" : "location";
 
     // ── Data shapes for child modals ───────────────────────────────────────────
 
     const personData = isPerson
         ? {
-              numeroEmpleado: selectedLocation.numeroEmpleado ?? "",
-              nombreCompleto: selectedLocation.nombreCompleto ?? "",
-              email:          selectedLocation.email          ?? "",
-              telefono:       selectedLocation.telefono       ?? "",
-              cargo:          selectedLocation.cargo          ?? "",
-              departamento:   selectedLocation.departamento   ?? "",
-              cubiculo:       selectedLocation.cubiculo,
-              planta:         selectedLocation.planta,
-              ubicacion: {
-                  nombre:      selectedLocation.nombre,
-                  coordenadas: selectedLocation.posicion,
-              },
-          }
+            numeroEmpleado: selectedLocation.numeroEmpleado ?? "",
+            nombreCompleto: selectedLocation.nombreCompleto ?? "",
+            email: selectedLocation.email ?? "",
+            telefono: selectedLocation.telefono ?? "",
+            cargo: selectedLocation.cargo ?? "",
+            departamento: selectedLocation.departamento ?? "",
+            cubiculo: selectedLocation.cubiculo,
+            planta: selectedLocation.planta,
+            ubicacion: {
+                nombre: selectedLocation.nombre,
+                coordenadas: selectedLocation.posicion,
+            },
+        }
         : null;
 
     const eventData = isEvent
         ? {
-              _id:              selectedLocation.eventId ?? selectedLocation._id,
-              titulo:           selectedLocation.eventTitulo           ?? "",
-              descripcion:      selectedLocation.eventDescripcion,
-              fechaInicio:      selectedLocation.eventFechaInicio      ?? "",
-              fechaFin:         selectedLocation.eventFechaFin         ?? "",
-              horaInicio:       selectedLocation.eventHoraInicio       ?? "",
-              horaFin:          selectedLocation.eventHoraFin          ?? "",
-              cupos:            selectedLocation.eventCupos            ?? 0,
-              cuposDisponibles: selectedLocation.eventCuposDisponibles ?? 0,
-              activo:           selectedLocation.eventActivo           ?? true,
-              image:            selectedLocation.eventImage,
-              destinoNombre:    selectedLocation.nombre,
-              espacioNombre:    selectedLocation.eventEspacioNombre,
-              encargado:        selectedLocation.eventEncargado,
-              encargadoEmail:   selectedLocation.eventEncargadoEmail,
-          }
+            _id: selectedLocation.eventId ?? selectedLocation._id,
+            titulo: selectedLocation.eventTitulo ?? "",
+            descripcion: selectedLocation.eventDescripcion,
+            fecha: selectedLocation.eventFecha ?? "",
+            horaInicio: selectedLocation.eventHoraInicio ?? "",
+            horaFin: selectedLocation.eventHoraFin ?? "",
+            cupos: selectedLocation.eventCupos ?? 0,
+            cuposDisponibles: selectedLocation.eventCuposDisponibles ?? 0,
+            activo: selectedLocation.eventActivo ?? true,
+            image: selectedLocation.eventImage,
+            destinoNombre: selectedLocation.nombre,
+            espacioNombre: selectedLocation.eventEspacioNombre,
+            encargado: selectedLocation.eventEncargado,
+            encargadoEmail: selectedLocation.eventEncargadoEmail,
+        }
         : null;
 
     // ── Handlers ───────────────────────────────────────────────────────────────

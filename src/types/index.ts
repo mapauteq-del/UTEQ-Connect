@@ -41,8 +41,7 @@ export interface Location {
     eventId?: string;
     eventTitulo?: string;
     eventDescripcion?: string;
-    eventFechaInicio?: string;
-    eventFechaFin?: string;
+    eventFecha?: string;
     eventHoraInicio?: string;
     eventHoraFin?: string;
     eventCupos?: number;

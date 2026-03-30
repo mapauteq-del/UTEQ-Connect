@@ -14,8 +14,7 @@ export interface EventData {
     _id: string;
     titulo: string;
     descripcion?: string;
-    fechaInicio: string;
-    fechaFin: string;
+    fecha: string;
     horaInicio: string;
     horaFin: string;
     cupos: number;
@@ -36,17 +35,18 @@ interface Props {
 
 const EventInformation: React.FC<Props> = ({ event, visible, onClose }) => {
 
-    const formatDate = (iso: string) =>
-        new Date(iso).toLocaleDateString("es-MX", {
+    const formatDate = (iso: string) => {
+        if (!iso) return 'Fecha no disponible';
+        const date = new Date(iso);
+        if (isNaN(date.getTime())) return 'Fecha no disponible';
+        return date.toLocaleDateString("es-MX", {
             weekday: "long",
-            day:     "numeric",
-            month:   "long",
-            year:    "numeric",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            timeZone: "UTC",
         });
-
-    const isSameDay =
-        !!event &&
-        new Date(event.fechaInicio).toDateString() === new Date(event.fechaFin).toDateString();
+    };
 
     const cuposPercent =
         event && event.cupos > 0
@@ -57,6 +57,7 @@ const EventInformation: React.FC<Props> = ({ event, visible, onClose }) => {
         cuposPercent > 50 ? "#34A853" : cuposPercent > 20 ? "#FB8C00" : "#E53935";
 
     return (
+        console.log('event completo:', JSON.stringify(event, null, 2)),
         <Modal
             visible={visible}
             animationType="slide"
@@ -113,11 +114,8 @@ const EventInformation: React.FC<Props> = ({ event, visible, onClose }) => {
                                     <Ionicons name="calendar-outline" size={18} color="#4285F4" />
                                     <Text style={s.label}>Fecha</Text>
                                 </View>
-                                <Text style={s.info}>
-                                    {isSameDay
-                                        ? formatDate(event.fechaInicio)
-                                        : `${formatDate(event.fechaInicio)}\n${formatDate(event.fechaFin)}`}
-                                </Text>
+                                <Text style={s.info}>{formatDate(event.fecha)}</Text>
+
                                 <View style={[s.row, { marginTop: 8 }]}>
                                     <Ionicons name="time-outline" size={18} color="#4285F4" />
                                     <Text style={s.info}>{event.horaInicio} – {event.horaFin}</Text>
