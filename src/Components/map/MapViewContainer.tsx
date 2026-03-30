@@ -75,9 +75,12 @@ const getGooglePolyline = async (
     return [];
 };
 
-// ─── Componente ───────────────────────────────────────────────────────────────
 
-const MapViewContainer = () => {
+interface MapViewContainerProps {
+    initialDestination?: any;
+}
+
+const MapViewContainer = ({ initialDestination }: MapViewContainerProps) => {
     const [searchText, setSearchText] = useState("");
     const [selectedLocation, setSelectedLocation] = useState<LocationType | null>(null);
     const [currentLocation, setCurrentLocation] = useState<Coordinates | null>(null);
@@ -109,6 +112,34 @@ const MapViewContainer = () => {
         obtenerUbicacionActual();
         return () => { locationSubscription.current?.remove(); };
     }, []);
+
+    const rutaCalculadaRef = useRef(false);
+
+    useEffect(() => {
+        if (!initialDestination?.posicion) return;
+        if (!currentLocation) return;
+        if (rutaCalculadaRef.current) return;
+
+        rutaCalculadaRef.current = true;
+
+        const location: LocationType = {
+            _id: initialDestination._id || initialDestination.nombre,
+            nombre: initialDestination.nombre,
+            posicion: {
+                latitude: initialDestination.posicion.latitude,
+                longitude: initialDestination.posicion.longitude,
+            },
+        };
+
+        setSelectedLocation(location);
+        mapRef.current?.animateToRegion(
+            { ...location.posicion, latitudeDelta: 0.005, longitudeDelta: 0.005 },
+            500
+        );
+        calcularRuta(currentLocation, location.posicion);
+
+    }, [currentLocation, initialDestination]);
+
 
     // ── GPS ───────────────────────────────────────────────────────────────────
 

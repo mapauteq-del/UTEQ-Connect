@@ -31,7 +31,7 @@ const EventDetailScreen = () => {
   const navigation = useNavigation<EventDetailNavigationProp>();
   const route = useRoute<EventDetailRouteProp>();
   const { eventId } = route.params;
-  
+
   const [event, setEvent] = useState<any>(null);
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,12 +63,12 @@ const EventDetailScreen = () => {
       const token = tokenParam || await AsyncStorage.getItem('userToken');
       const currentUserId = userIdParam || await AsyncStorage.getItem('userId');
 
-     const eventResponse = await axios.get(
-    `${API_URL}/events/${eventId}`,
-    token ? { headers: { Authorization: `Bearer ${token}` } } : {}
-);
-console.log('raw response:', JSON.stringify(eventResponse.data.data, null, 2));
-setEvent(eventResponse.data.data);
+      const eventResponse = await axios.get(
+        `${API_URL}/events/${eventId}`,
+        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+      );
+      console.log('raw response:', JSON.stringify(eventResponse.data.data, null, 2));
+      setEvent(eventResponse.data.data);
       setEvent(eventResponse.data.data);
 
       if (token && currentUserId) {
@@ -95,7 +95,7 @@ setEvent(eventResponse.data.data);
 
   const handleRegister = async () => {
     const token = await AsyncStorage.getItem('userToken');
-    
+
     if (!token) {
       Alert.alert(
         'Registro Requerido',
@@ -155,14 +155,14 @@ setEvent(eventResponse.data.data);
     );
   };
 
-const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return 'Fecha no disponible';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Fecha no disponible v2';
     return date.toLocaleDateString('es-MX', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'
     });
-};
+  };
 
 
   const getImageUrl = (imagePath: string) => {
@@ -198,9 +198,9 @@ const formatDate = (dateString: string) => {
 
   return (
     console.log('event.fecha:', event?.fecha),
-    
+
     <View style={styles.container}>
-      
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header con imagen */}
         <View style={styles.headerImage}>
@@ -239,7 +239,7 @@ const formatDate = (dateString: string) => {
               <View style={styles.iconContainer}>
                 <Icon name="time-outline" size={20} color="#1a1a1a" />
               </View>
-              <View style={styles.infoTextContainer}> 
+              <View style={styles.infoTextContainer}>
                 <Text style={styles.infoLabel}>Horario</Text>
                 <Text style={styles.infoValue}>{event.horaInicio} - {event.horaFin}</Text>
               </View>

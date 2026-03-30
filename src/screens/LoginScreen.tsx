@@ -139,7 +139,8 @@ const LoginScreen = ({ navigation, setIsLoggedIn }: Props) => {
         await AsyncStorage.setItem('userEmail', user.email);
         await AsyncStorage.setItem('userName', user.nombre);
         await AsyncStorage.setItem('userRol', user.rol);
-        // ✅ Guardar email para login biométrico futuro
+
+        
         await AsyncStorage.setItem('biometricUser', user.email);
 
         setIsLoggedIn(true);

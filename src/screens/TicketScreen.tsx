@@ -176,7 +176,7 @@ const TicketScreen = () => {
             <View style={styles.eventInfoContent}>
               <Text style={styles.eventInfoLabel}>Fecha</Text>
               <Text style={styles.eventInfoValue}>
-                {formatDateRange(event.fechaInicio)}
+                {formatDateRange(event.fecha)}
               </Text>
             </View>
           </View>

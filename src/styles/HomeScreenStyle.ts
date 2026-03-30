@@ -6,7 +6,7 @@ const CARD_WIDTH = width * 0.9;
 export default StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: '#ffffffff',
   },
   
   // 🔹 NUEVO: Estilos para ScrollView con padding para el tab bar
@@ -25,7 +25,7 @@ export default StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 15,
-    backgroundColor: '#E8E8E8',
+    backgroundColor: '#ffffffff',
   },
   greeting: {
     fontSize: 16,

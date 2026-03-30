@@ -7,9 +7,11 @@ import {
   RefreshControl,
   Alert,
   StatusBar,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { io, Socket } from 'socket.io-client'; // 👈
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -19,10 +21,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { EventsStackParamList } from '../types/navigation';
 import { API_URL } from '../api/config';
 
-type EventsListNavigationProp = StackNavigationProp<
-  EventsStackParamList,
-  'EventsList'
->;
+type EventsListNavigationProp = StackNavigationProp<EventsStackParamList, 'EventsList'>;
 
 const EventsListScreen = () => {
   const navigation = useNavigation<EventsListNavigationProp>();
@@ -31,16 +30,69 @@ const EventsListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Refresca cuando navega a la pantalla
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchEvents();
+    }, [filter])
+  );
+
+  // Refresca cuando vuelve del background
   useEffect(() => {
-    fetchEvents();
-  }, [filter]);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        console.log('App volvió al frente: refrescando');
+        fetchEvents();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // Socket.io 👈
+  useEffect(() => {
+    console.log('Socket: conectando a', API_URL);
+const socket: Socket = io(API_URL.replace('/api', ''), {
+  transports: ['websocket'],
+});
+
+    socket.on('connect', () => {
+      console.log('Socket: conectado ✅', socket.id);
+    });
+
+    socket.on('event_created', (data) => {
+      console.log('Socket: 🆕 evento creado', data);
+      fetchEvents();
+    });
+
+    socket.on('event_updated', (data) => {
+      console.log('Socket: ✏️ evento actualizado', data);
+      fetchEvents();
+    });
+
+    socket.on('event_deleted', (data) => {
+      console.log('Socket: 🗑️ evento eliminado', data);
+      fetchEvents();
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket: desconectado ❌');
+    });
+
+    socket.on('connect_error', (error) => {
+      console.log('Socket: error de conexión ❌', error.message);
+    });
+
+    return () => {
+      console.log('Socket: cerrando conexión');
+      socket.disconnect();
+    };
+  }, []);
 
   const fetchEvents = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
 
       let endpoint = `${API_URL}/events`;
-
       if (filter === 'disponibles') {
         endpoint = `${API_URL}/events/active`;
       }
@@ -49,10 +101,9 @@ const EventsListScreen = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const eventData = response.data.data; 
+      const eventData = response.data.data;
 
       let filteredEvents = eventData;
-
       if (filter === 'proximos') {
         const now = new Date();
         filteredEvents = eventData.filter(
@@ -61,9 +112,8 @@ const EventsListScreen = () => {
       }
 
       setEvents(filteredEvents);
-
     } catch (error) {
-      console.error('Error fetching events:', error);
+      console.error('fetchEvents: error ❌', error);
       Alert.alert('Error', 'No se pudieron cargar los eventos');
     } finally {
       setLoading(false);
@@ -76,7 +126,7 @@ const EventsListScreen = () => {
     fetchEvents();
   };
 
-  const handleEventPress = (event) => {
+  const handleEventPress = (event: any) => {
     navigation.navigate('EventDetail', { eventId: event._id });
   };
 
@@ -92,10 +142,10 @@ const EventsListScreen = () => {
           onPress={() => setFilter('todos')}
           activeOpacity={0.7}
         >
-          <Icon 
-            name="menu-outline" 
-            size={20} 
-            color={filter === 'todos' ? '#fff' : '#666'} 
+          <Icon
+            name="menu-outline"
+            size={20}
+            color={filter === 'todos' ? '#fff' : '#666'}
           />
         </TouchableOpacity>
 
@@ -142,7 +192,7 @@ const EventsListScreen = () => {
         renderItem={({ item }) => (
           <EventCard event={item} onPress={() => handleEventPress(item)} />
         )}
-        keyExtractor={(item) => item._id}
+        keyExtractor={(item: any) => item._id}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={!loading ? renderEmpty : null}

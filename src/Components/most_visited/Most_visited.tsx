@@ -12,7 +12,11 @@ interface Destination {
     image?: string;
 }
 
-const Most_visited = () => {
+interface Props {
+    navigation: any;
+}
+
+const Most_visited = ({ navigation }: Props) => {
     const scrollViewRef = useRef<ScrollView>(null);
     const [activeSlide, setActiveSlide] = useState(0);
     const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -23,17 +27,32 @@ const Most_visited = () => {
 
     const fetchMostVisited = async () => {
         try {
+            console.log('MostVisited: haciendo fetch...');
             const response = await fetch('https://uteq-connect-server-production.up.railway.app/api/most-visited');
             const data = await response.json();
+
+            console.log('MostVisited: total recibidos:', data.length);
+            console.log('MostVisited: datos completos:', JSON.stringify(data, null, 2));
+            data.forEach((d: Destination) => {
+                console.log(`MostVisited: [${d.rank}] ${d.nombre} → image: ${d.image ?? 'SIN IMAGEN'}`);
+            });
+
             setDestinations(data);
         } catch (error) {
-            console.error('Error fetching most visited:', error);
+            console.error('MostVisited: error ❌', error);
         }
     };
 
     const getImageUrl = (image?: string) => {
-        if (!image) return null;
-        return image.startsWith('http') ? image : `https://uteq-connect-server-production.up.railway.app/${image}`;
+        if (!image) {
+            console.log('getImageUrl: image es null/undefined');
+            return null;
+        }
+        const url = image.startsWith('http')
+            ? image
+            : `https://uteq-connect-server-production.up.railway.app/${image}`;
+        console.log('getImageUrl:', url);
+        return url;
     };
 
     const handleScroll = (event: any) => {
@@ -42,7 +61,7 @@ const Most_visited = () => {
     };
 
     const handleNavigateToDestination = (destination: Destination) => {
-        console.log('Navegar a:', destination.nombre);
+        navigation.navigate('MapTab', { destination });
     };
 
     return (
@@ -73,8 +92,8 @@ const Most_visited = () => {
                                         source={{ uri: imageUrl }}
                                         style={styles.cardImage}
                                         resizeMode="cover"
-                                        onError={(error) => console.log('❌ Error cargando imagen:', error.nativeEvent.error)}
-                                        onLoad={() => console.log('✅ Imagen cargada:', imageUrl)}
+                                        onError={(error) => console.log(`❌ Error imagen [${destination.nombre}]:`, error.nativeEvent.error)}
+                                        onLoad={() => console.log(`✅ Imagen cargada [${destination.nombre}]:`, imageUrl)}
                                     />
                                 ) : (
                                     <View style={styles.cardImagePlaceholder}>

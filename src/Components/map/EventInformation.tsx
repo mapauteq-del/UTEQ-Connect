@@ -162,7 +162,6 @@ const EventInformation: React.FC<Props> = ({ event, visible, onClose }) => {
                                 </View>
                             </View>
 
-                            {/* Encargado */}
                             {!!event.encargado && (
                                 <View style={s.section}>
                                     <View style={s.row}>

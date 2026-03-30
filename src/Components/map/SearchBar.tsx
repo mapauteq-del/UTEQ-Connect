@@ -187,7 +187,10 @@ const SearchBar = ({ value, onChange, onSelectLocation }: Props) => {
       eventImage: event.image,
       eventEspacioNombre: event.espacio?.nombre,
       eventEncargado: event.creadoPor
-        ? `${event.creadoPor.nombre} ${event.creadoPor.apellidoPaterno}`
+        ? [
+          event.creadoPor.nombre,
+          event.creadoPor.apellidoPaterno,
+        ].filter(Boolean).join(' ')
         : undefined,
       eventEncargadoEmail: event.creadoPor?.email,
     };
@@ -195,12 +198,12 @@ const SearchBar = ({ value, onChange, onSelectLocation }: Props) => {
     onSelectLocation?.(location);   // no personData → handleLocationSelect won't overwrite isEvent
   };
 
-const formatEventDate = (fecha: string) => {
+  const formatEventDate = (fecha: string) => {
     if (!fecha) return '';
     return new Date(fecha).toLocaleDateString("es-MX", {
-        day: "numeric", month: "short", timeZone: "UTC"
+      day: "numeric", month: "short", timeZone: "UTC"
     });
-};
+  };
 
   const renderItem = ({ item }: { item: SuggestionItem }) => {
     if (item.type === "location") {

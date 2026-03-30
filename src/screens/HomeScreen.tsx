@@ -73,17 +73,6 @@ const HomeScreen = ({ navigation, setIsLoggedIn }: HomeScreenProps) => {
     fetchDestinations();
   };
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.multiRemove([
-        'userToken', 'userId', 'userEmail', 'userName', 'userRol'
-      ]);
-      setIsLoggedIn(false);
-    } catch (error) {
-      setIsLoggedIn(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -94,27 +83,23 @@ const HomeScreen = ({ navigation, setIsLoggedIn }: HomeScreenProps) => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hola </Text>
+            <Text style={styles.greeting}>Hola!</Text>
             <Text style={styles.title}>{userName}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={{ color: '#1e3a5f', fontWeight: '700' }}>Logout</Text>
-          </TouchableOpacity>
         </View>
 
-        <Most_visited />
+        <Most_visited navigation={navigation} />
 
         <CalendarSection
           onEventPress={(event) =>
-            navigation.navigate('EventosTab' as any, {
+            navigation.navigate('EventsTab' as any, {
               screen: 'EventDetail',
               params: { eventId: event._id },
             })
           }
-          onVerTodos={() => navigation.navigate('EventosTab' as any)}
+          onVerTodos={() => navigation.navigate('EventsTab' as any)}
         />
 
       </ScrollView>

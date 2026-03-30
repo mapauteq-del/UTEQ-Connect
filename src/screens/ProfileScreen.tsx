@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import styles from "../styles/ProfileScreenStyle";
 import EventTicketSection from "../Components/profile/EventTicketSection";
-
+import { API_URL } from "../api/config";
 const ProfileScreen = ({ navigation, setIsLoggedIn }: {
   navigation: any;
   setIsLoggedIn: (value: boolean) => void;
@@ -19,24 +19,39 @@ const ProfileScreen = ({ navigation, setIsLoggedIn }: {
     getDataFromStorage();
   }, []);
 
-  const getDataFromStorage = async () => {
+const getDataFromStorage = async () => {
     const token = await AsyncStorage.getItem('userToken');
     const userName = await AsyncStorage.getItem('userName');
     const userEmail = await AsyncStorage.getItem('userEmail');
     setUserData({ token, userName, userEmail });
-  };
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('userToken');
-    await AsyncStorage.removeItem('userId');
+    if (token) {
+        try {
+            const res = await fetch(`${API_URL}/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                await AsyncStorage.setItem('userName', data.data.nombre);
+                await AsyncStorage.setItem('userEmail', data.data.email);
+                console.log(data.data);
+                setUserData({ token, userName: data.data.nombre, userEmail: data.data.email });
+            }
+        } catch (_) {}
+    }
+};
+
+const handleLogout = async () => {
+    await AsyncStorage.multiRemove([
+        'userToken', 'userId', 'userEmail', 'userName', 'userRol'
+    ]);
     setIsLoggedIn(false);
     navigation.navigate('Index');
-  };
+};
 
   return (
     <View style={styles.container}>
 
-      {/* ── Header FUERA del scroll → siempre visible ── */}
       <View style={styles.header}>
         <View style={styles.headerLogo}>
           <MaterialCommunityIcons name="map-marker-check" size={20} color="#fff" />
@@ -45,13 +60,11 @@ const ProfileScreen = ({ navigation, setIsLoggedIn }: {
         </View>
       </View>
 
-      {/* ── Todo lo demás hace scroll ── */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Tarjeta de perfil — se superpone al header */}
         <View style={styles.content}>
 
           {/* Avatar flotando sobre la tarjeta */}
